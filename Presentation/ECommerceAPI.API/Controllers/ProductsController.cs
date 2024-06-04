@@ -15,11 +15,14 @@ namespace ECommerceAPI.API.Controllers
     {
         private readonly IProductWriteRepository _productWriteRepsoitory;
         private readonly IProductReadRepository _productReadRepsoitory;
+        private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public ProductsController(IProductWriteRepository productWriteRepsoitory, IProductReadRepository productReadRepsoitory)
+        public ProductsController(IProductWriteRepository productWriteRepsoitory, IProductReadRepository productReadRepsoitory, IWebHostEnvironment webHostEnvironment)
         {
             _productWriteRepsoitory = productWriteRepsoitory;
             _productReadRepsoitory = productReadRepsoitory;
+            _webHostEnvironment = webHostEnvironment;
+
         }
 
         [HttpGet]
@@ -85,6 +88,30 @@ namespace ECommerceAPI.API.Controllers
         {
             await _productWriteRepsoitory.RemoveAsync(id);
             await _productWriteRepsoitory.SaveAsync();
+            return Ok();
+        }
+
+        [HttpPost("[action]")]
+        public async Task<IActionResult> Upload()
+        {
+            // wwwroot/resource/product-images
+            string uploadPath = Path.Combine(_webHostEnvironment.WebRootPath, "resource/product-images");
+
+            if (!Directory.Exists(uploadPath))
+                Directory.CreateDirectory(uploadPath);
+
+            Random r = new();
+
+            foreach (IFormFile file in Request.Form.Files)
+            {
+                string fullPath = Path.Combine(uploadPath, $"{r.Next()}{Path.GetExtension(file.FileName)}");
+
+                using FileStream fileStream = new(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024, useAsync: false);
+
+                await file.CopyToAsync(fileStream);
+                await fileStream.FlushAsync();
+            }
+
             return Ok();
         }
     }
