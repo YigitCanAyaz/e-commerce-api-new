@@ -11,14 +11,6 @@ namespace ECommerceAPI.Infrastructure.Services
 {
     public class FileService
     {
-        readonly IWebHostEnvironment _webHostEnvironment;
-
-        public FileService(IWebHostEnvironment webHostEnvironment)
-        {
-            _webHostEnvironment = webHostEnvironment;
-        }
-
-
         private async Task<string> FileRenameAsync(string path, string fileName, int num = 1)
         {
             return await Task.Run(async () =>

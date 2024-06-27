@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace ECommerceAPI.Infrastructure.Services.Storage.Local
 {
-    public class LocalStorage : ILocalStorage
+    public class LocalStorage : Storage, ILocalStorage
     {
 
         readonly IWebHostEnvironment _webHostEnvironment;
@@ -30,7 +30,7 @@ namespace ECommerceAPI.Infrastructure.Services.Storage.Local
         }
 
         public bool HasFile(string path, string fileName)
-            => File.Exists($"{path}.{fileName}");
+            => File.Exists($"{path}/{fileName}");
 
         public async Task<List<(string fileName, string pathOrContainerName)>> UploadAsync(string path, IFormFileCollection files)
         {
@@ -42,10 +42,10 @@ namespace ECommerceAPI.Infrastructure.Services.Storage.Local
             List<bool> results = new();
             foreach (IFormFile file in files)
             {
-                //string fileNewName = await FileRenameAsync(uploadPath, file.FileName);
+                string fileNewName = await FileRenameAsync(uploadPath, file.Name, HasFile);
 
-                await CopyFileAsync($"{uploadPath}\\{file.Name}", file);
-                datas.Add((file.Name, $"{path}\\{file.Name}"));
+                await CopyFileAsync($"{uploadPath}\\{fileNewName}", file);
+                datas.Add((fileNewName, $"{path}\\{fileNewName}"));
             }
 
             if (results.TrueForAll(r => r.Equals(true)))
