@@ -7,6 +7,7 @@ using ECommerceAPI.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections;
 using System.Net;
 
 namespace ECommerceAPI.API.Controllers
@@ -25,8 +26,9 @@ namespace ECommerceAPI.API.Controllers
         private readonly IInvoiceFileReadRepository _invoiceFileReadRepository;
         private readonly IInvoiceFileWriteRepository _invoiceFileWriteRepository;
         private readonly IStorageService _storageService;
+        private readonly IConfiguration _configuration;
 
-        public ProductsController(IProductWriteRepository productWriteRepsoitory, IProductReadRepository productReadRepsoitory, IWebHostEnvironment webHostEnvironment, IFileWriteRepository fileWriteRepository, IFileReadRepository fileReadRepository, IProductImageFileReadRepository productImageFileReadRepository, IProductImageFileWriteRepository productImageFileWriteRepository, IInvoiceFileReadRepository invoiceFileReadRepository, IInvoiceFileWriteRepository invoiceFileWriteRepository, IStorageService storageService)
+        public ProductsController(IProductWriteRepository productWriteRepsoitory, IProductReadRepository productReadRepsoitory, IWebHostEnvironment webHostEnvironment, IFileWriteRepository fileWriteRepository, IFileReadRepository fileReadRepository, IProductImageFileReadRepository productImageFileReadRepository, IProductImageFileWriteRepository productImageFileWriteRepository, IInvoiceFileReadRepository invoiceFileReadRepository, IInvoiceFileWriteRepository invoiceFileWriteRepository, IStorageService storageService, IConfiguration configuration)
         {
             _productWriteRepsoitory = productWriteRepsoitory;
             _productReadRepsoitory = productReadRepsoitory;
@@ -38,6 +40,7 @@ namespace ECommerceAPI.API.Controllers
             _invoiceFileReadRepository = invoiceFileReadRepository;
             _invoiceFileWriteRepository = invoiceFileWriteRepository;
             _storageService = storageService;
+            _configuration = configuration;
         }
 
         [HttpGet]
@@ -106,7 +109,7 @@ namespace ECommerceAPI.API.Controllers
             return Ok();
         }
 
-        [HttpPost("[action]")]
+        [HttpPost("[action]")] // api/products?id=123
         public async Task<IActionResult> Upload(string id)
         {
             List<(string fileName, string pathOrContainerName)> result = await _storageService.UploadAsync("photo-images", Request.Form.Files);
@@ -134,6 +137,42 @@ namespace ECommerceAPI.API.Controllers
             }).ToList());
 
             await _productImageFileWriteRepository.SaveAsync();
+
+            return Ok();
+        }
+
+        [HttpGet("[action]/{id}")] // api/products/123
+        public async Task<IActionResult> GetProductImages(string id)
+        {
+            Product? product = await _productReadRepsoitory
+                .Table.Include(p => p.ProductImageFiles)
+                .FirstOrDefaultAsync(P => P.Id == Guid.Parse(id));
+
+            //return Ok(product.ProductImageFiles.Select(p => new
+            //{
+            //    p.Path,
+            //    p.FileName
+            //}));
+
+            return Ok(product.ProductImageFiles.Select(p => new
+            {
+                Path = $"{_configuration["BaseStorageUrl"]}/{p.Path}",
+                p.FileName,
+                p.Id
+            }));
+        }
+
+        [HttpDelete("[action]/{id}")]
+        public async Task<IActionResult> DeleteProductImage(string id, string imageId)
+        {
+            Product? product = await _productReadRepsoitory
+               .Table.Include(p => p.ProductImageFiles)
+               .FirstOrDefaultAsync(P => P.Id == Guid.Parse(id));
+
+            ProductImageFile productImageFile = product.ProductImageFiles.FirstOrDefault(p => p.Id == Guid.Parse(imageId));
+
+            product.ProductImageFiles.Remove(productImageFile);
+            await _productWriteRepsoitory.SaveAsync();
 
             return Ok();
         }
