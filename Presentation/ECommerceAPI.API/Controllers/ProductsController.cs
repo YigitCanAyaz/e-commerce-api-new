@@ -1,9 +1,13 @@
 ﻿using ECommerceAPI.Application.Abstractions;
+using ECommerceAPI.Application.Features.Commands;
+using ECommerceAPI.Application.Features.Commands.CreateProduct;
+using ECommerceAPI.Application.Features.Queries.GetAllProduct;
 using ECommerceAPI.Application.Repositories;
 using ECommerceAPI.Application.Repositories.File;
 using ECommerceAPI.Application.RequestParameters;
 using ECommerceAPI.Application.ViewModels.Products;
 using ECommerceAPI.Domain.Entities;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +32,9 @@ namespace ECommerceAPI.API.Controllers
         private readonly IStorageService _storageService;
         private readonly IConfiguration _configuration;
 
-        public ProductsController(IProductWriteRepository productWriteRepsoitory, IProductReadRepository productReadRepsoitory, IWebHostEnvironment webHostEnvironment, IFileWriteRepository fileWriteRepository, IFileReadRepository fileReadRepository, IProductImageFileReadRepository productImageFileReadRepository, IProductImageFileWriteRepository productImageFileWriteRepository, IInvoiceFileReadRepository invoiceFileReadRepository, IInvoiceFileWriteRepository invoiceFileWriteRepository, IStorageService storageService, IConfiguration configuration)
+        readonly IMediator _mediator;
+
+        public ProductsController(IProductWriteRepository productWriteRepsoitory, IProductReadRepository productReadRepsoitory, IWebHostEnvironment webHostEnvironment, IFileWriteRepository fileWriteRepository, IFileReadRepository fileReadRepository, IProductImageFileReadRepository productImageFileReadRepository, IProductImageFileWriteRepository productImageFileWriteRepository, IInvoiceFileReadRepository invoiceFileReadRepository, IInvoiceFileWriteRepository invoiceFileWriteRepository, IStorageService storageService, IConfiguration configuration, IMediator mediator)
         {
             _productWriteRepsoitory = productWriteRepsoitory;
             _productReadRepsoitory = productReadRepsoitory;
@@ -41,31 +47,15 @@ namespace ECommerceAPI.API.Controllers
             _invoiceFileWriteRepository = invoiceFileWriteRepository;
             _storageService = storageService;
             _configuration = configuration;
+            _mediator = mediator;
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] Pagination pagination)
+        public async Task<IActionResult> Get([FromQuery] GetAllProductQueryRequest getAllProductQueryRequest)
         {
-            //await Task.Delay(1500);
-            var totalCount = _productReadRepsoitory.GetAll(false).Count();
-            var products = _productReadRepsoitory
-                .GetAll(false)
-                .Skip(pagination.Page * pagination.Size)
-                .Take(pagination.Size).Select(p => new
-                {
-                    p.Id,
-                    p.Name,
-                    p.Stock,
-                    p.Price,
-                    p.CreatedDate,
-                    p.UpdatedDate
-                }).ToList();
+            GetAllProductQueryResponse response = await _mediator.Send(getAllProductQueryRequest);
 
-            return Ok(new
-            {
-                totalCount,
-                products
-            });
+            return Ok(response);
         }
 
         [HttpGet("{id}")]
@@ -75,16 +65,10 @@ namespace ECommerceAPI.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post(VM_Create_Product model)
+        public async Task<IActionResult> Post(CreateProductCommandRequest createProductCommandRequest)
         {
-            await _productWriteRepsoitory.AddAsync(new()
-            {
-                Name = model.Name,
-                Price = model.Price,
-                Stock = model.Stock
-            });
 
-            await _productWriteRepsoitory.SaveAsync();
+            CreateProductCommandResponse response = await _mediator.Send(createProductCommandRequest);
 
             return StatusCode((int)HttpStatusCode.Created);
         }
